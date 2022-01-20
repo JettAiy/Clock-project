@@ -16,6 +16,21 @@ public class AnimationClock : MonoBehaviour
 
     private Action<int, int, int> _callbackAction;
 
+    private float _hourCorrection;
+    private float _minutesCorrection;
+    private float _secondsCorrection;
+
+
+    private float _timeToServerCheck = 3600f;
+    private float _lastServerTimeCheck;
+    #region INIT
+    private void Start()
+    {
+        ServerTimeSync();
+    }
+    #endregion
+
+
     #region CORE
 
     private void Update()
@@ -23,16 +38,21 @@ public class AnimationClock : MonoBehaviour
         if (isSetupMode)
             SetupClock();
         else
-            AnimateClock();   
+            AnimateClock();
+
+        if (Time.time - _lastServerTimeCheck >= _timeToServerCheck)
+        {
+            ServerTimeSync();
+        }
     }
 
     private void AnimateClock()
     {
         TimeSpan timeSpan = DateTime.Now.TimeOfDay;
 
-        SetArrow(_hoursArrow,(float)timeSpan.TotalHours * -_hoursToDegree);
-        SetArrow(_minutesArrow, (float)timeSpan.TotalMinutes * -_minutesToDegree);
-        SetArrow(_secondsArrow, (float)timeSpan.TotalSeconds * -_secondsToDegree);
+        SetArrow(_hoursArrow,(float)(timeSpan.TotalHours + _hourCorrection) * -_hoursToDegree);
+        SetArrow(_minutesArrow, (float)(timeSpan.TotalMinutes + _minutesCorrection) * -_minutesToDegree);
+        SetArrow(_secondsArrow, (float)(timeSpan.TotalSeconds + _secondsCorrection) * -_secondsToDegree);
     }
 
     private void SetupClock()
@@ -45,7 +65,29 @@ public class AnimationClock : MonoBehaviour
     }
     #endregion
 
+    #region SERVER TIME
+    private void ServerTimeSync()
+    {
+        if (Application.internetReachability == NetworkReachability.NotReachable)
+        {
+            Debug.Log("Unable to reach time servers!");
+            return;
+        }
+        DateTime current = DateTime.Now;
+        DateTime serverTime = ServerTime.GetNetworkTime(); 
+
+        _hourCorrection = serverTime.Hour - current.Hour;
+        _minutesCorrection = serverTime.Minute - current.Minute;
+        _secondsCorrection = serverTime.Second - current.Second;
+
+        _lastServerTimeCheck = Time.time;
+
+        Debug.Log($"server time: {serverTime}. Correction H {_hourCorrection} M {_minutesCorrection} S {_secondsCorrection}");
+    }
+    #endregion
+
     #region UTIL
+
     private void SetArrow(ArrowClock arrowClock, float angle)
     {
         arrowClock.SetupAngle(angle);
